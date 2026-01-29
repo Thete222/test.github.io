@@ -1,0 +1,193 @@
+[[Welcome]] | [[seaGame02]] >>
+
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <title>世界地図 航行ゲーム</title>
+  <style>
+    body {
+      margin: 0;
+      background: #0b1d2a;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      color: white;
+      font-family: sans-serif;
+    }
+    canvas {
+      border: 2px solid #ffffff44;
+      background: #1e90ff; /* 海 */
+    }
+    .hint {
+      position: absolute;
+      bottom: 20px;
+      opacity: 0.8;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="game" width="900" height="450"></canvas>
+  <div class="hint">← ↑ → ↓ キーで船を操作</div>
+
+  <script>
+    const canvas = document.getElementById("game");
+    const ctx = canvas.getContext("2d");
+
+    // 簡易的な世界地図（ポリゴンデータ）
+    // 簡易的な世界地図（ポリゴンデータ - 詳細版）
+    const landmasses = [
+      // --- North America (北米) ---
+      [
+        {x: 60, y: 50}, {x: 150, y: 30}, {x: 230, y: 25}, {x: 300, y: 35}, // Alaska/Canada
+        {x: 280, y: 80}, {x: 240, y: 120}, {x: 270, y: 150}, {x: 290, y: 180}, // East Coast
+        {x: 240, y: 220}, {x: 200, y: 240}, {x: 180, y: 200}, // Mexico/Central America
+        {x: 170, y: 150}, {x: 150, y: 120}, {x: 100, y: 130}, {x: 60, y: 80} // West Coast
+      ],
+      // --- South America (南米) ---
+      [
+        {x: 210, y: 240}, {x: 280, y: 250}, {x: 320, y: 280}, {x: 340, y: 340}, // Brazil
+        {x: 290, y: 440}, {x: 270, y: 445}, // Tierra del Fuego
+        {x: 260, y: 380}, {x: 240, y: 320}, {x: 220, y: 270} // Andes/Chile
+      ],
+      // --- Europe (欧州) ---
+      [
+        {x: 420, y: 60}, {x: 460, y: 50}, {x: 490, y: 70}, 
+        {x: 480, y: 90}, {x: 450, y: 100}, {x: 430, y: 90}
+      ],
+      // --- Asia (アジア) ---
+      [
+        {x: 500, y: 60}, {x: 600, y: 50}, {x: 750, y: 60}, {x: 820, y: 55}, // Russia/Siberia
+        {x: 840, y: 100}, {x: 800, y: 130}, {x: 760, y: 160}, {x: 720, y: 180}, // China Coast
+        {x: 700, y: 220}, {x: 660, y: 200}, // SE Asia Indochina
+        {x: 620, y: 180}, {x: 580, y: 190}, {x: 550, y: 170}, // India
+        {x: 520, y: 150} // Middle East
+      ],
+      // --- Africa (アフリカ) ---
+      [
+        {x: 430, y: 110}, {x: 510, y: 120}, {x: 550, y: 150}, // North Africa
+        {x: 580, y: 250}, // Horn of Africa
+        {x: 540, y: 380}, {x: 500, y: 400}, {x: 480, y: 380}, // South Africa
+        {x: 460, y: 300}, {x: 400, y: 250}, {x: 410, y: 180} // West Africa
+      ],
+      // --- Australia (オーストラリア) ---
+      [
+        {x: 720, y: 300}, {x: 780, y: 290}, {x: 830, y: 320},
+        {x: 820, y: 380}, {x: 750, y: 390}, {x: 700, y: 350}
+      ],
+      // --- Antarctica (南極) ---
+      [
+        {x: 100, y: 425}, {x: 400, y: 430}, {x: 800, y: 420}, {x: 850, y: 440},
+        {x: 50, y: 445}
+      ],
+      // --- Islands (島々) ---
+      // UK
+      [{x: 400, y: 65}, {x: 415, y: 65}, {x: 415, y: 85}, {x: 400, y: 80}],
+      // Japan (日本)
+      [{x: 820, y: 110}, {x: 840, y: 100}, {x: 850, y: 120}, {x: 830, y: 140}],
+      // Madagascar
+      [{x: 590, y: 320}, {x: 610, y: 320}, {x: 605, y: 360}, {x: 585, y: 350}],
+      // Indonesia / PNG Area
+      [{x: 680, y: 250}, {x: 750, y: 260}, {x: 800, y: 280}, {x: 730, y: 290}],
+      // Greenland
+      [{x: 320, y: 20}, {x: 380, y: 25}, {x: 360, y: 60}, {x: 310, y: 50}],
+    ];
+
+    const ship = {
+      x: 10,  // スタート位置調整
+      y: 200,
+      size: 8,
+      speed: 2,
+      vx: 0,
+      vy: 0,
+    };
+
+    const keys = {};
+
+    window.addEventListener("keydown", (e) => (keys[e.key] = true));
+    window.addEventListener("keyup", (e) => (keys[e.key] = false));
+
+    // Point in Polygon Algorithm (Ray Casting)
+    function pointInPolygon(x, y, poly) {
+      let inside = false;
+      for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+        const xi = poly[i].x, yi = poly[i].y;
+        const xj = poly[j].x, yj = poly[j].y;
+
+        const intersect = ((yi > y) != (yj > y)) &&
+          (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+        if (intersect) inside = !inside;
+      }
+      return inside;
+    }
+
+    function isOnLand(x, y) {
+      return landmasses.some(poly => pointInPolygon(x, y, poly));
+    }
+
+    function update() {
+      ship.vx = 0;
+      ship.vy = 0;
+
+      if (keys["ArrowUp"]) ship.vy = -ship.speed;
+      if (keys["ArrowDown"]) ship.vy = ship.speed;
+      if (keys["ArrowLeft"]) ship.vx = -ship.speed;
+      if (keys["ArrowRight"]) ship.vx = ship.speed;
+
+      const nextX = ship.x + ship.vx;
+      const nextY = ship.y + ship.vy;
+
+      // 陸地には入れない
+      if (!isOnLand(nextX, nextY)) {
+        ship.x = nextX;
+        ship.y = nextY;
+      }
+
+      // 画面外制限
+      ship.x = Math.max(0, Math.min(canvas.width, ship.x));
+      ship.y = Math.max(0, Math.min(canvas.height, ship.y));
+    }
+
+    function drawMap() {
+      // 海
+      ctx.fillStyle = "#1e90ff";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // 陸地
+      ctx.fillStyle = "#2ecc71";
+      landmasses.forEach((poly) => {
+        ctx.beginPath();
+        ctx.moveTo(poly[0].x, poly[0].y);
+        for(let i=1; i<poly.length; i++) {
+            ctx.lineTo(poly[i].x, poly[i].y);
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = "#27ae60";
+        ctx.stroke();
+      });
+    }
+
+    function drawShip() {
+      ctx.fillStyle = "#ffffff";
+      ctx.beginPath();
+      ctx.moveTo(ship.x, ship.y - ship.size);
+      ctx.lineTo(ship.x - ship.size, ship.y + ship.size);
+      ctx.lineTo(ship.x + ship.size, ship.y + ship.size);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    function loop() {
+      update();
+      drawMap();
+      drawShip();
+      requestAnimationFrame(loop);
+    }
+
+    loop();
+  </script>
+</body>
+</html>
