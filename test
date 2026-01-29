@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <title>世界地図 航行ゲーム</title>
+  <style>
+    body {
+      margin: 0;
+      background: #0b1d2a;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      color: white;
+      font-family: sans-serif;
+    }
+    canvas {
+      border: 2px solid #ffffff44;
+      background: #1e90ff; /* 海 */
+    }
+    .hint {
+      position: absolute;
+      bottom: 20px;
+      opacity: 0.8;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="game" width="900" height="450"></canvas>
+  <div class="hint">← ↑ → ↓ キーで船を操作</div>
+
+  <script>
+    const canvas = document.getElementById("game");
+    const ctx = canvas.getContext("2d");
+
+    // 簡易的な世界地図（陸地）
+    const landmasses = [
+      // 北米
+      { x: 80, y: 80, w: 180, h: 120 },
+      // 南米
+      { x: 180, y: 230, w: 120, h: 160 },
+      // ユーラシア
+      { x: 380, y: 60, w: 360, h: 160 },
+      // アフリカ
+      { x: 420, y: 220, w: 160, h: 180 },
+      // オーストラリア
+      { x: 680, y: 280, w: 160, h: 100 },
+    ];
+
+    const ship = {
+      x: 0,
+      y: 0,
+      size: 8,
+      speed: 2,
+      vx: 0,
+      vy: 0,
+    };
+
+    const keys = {};
+
+    window.addEventListener("keydown", (e) => (keys[e.key] = true));
+    window.addEventListener("keyup", (e) => (keys[e.key] = false));
+
+    function isOnLand(x, y) {
+      return landmasses.some(
+        (l) => x > l.x && x < l.x + l.w && y > l.y && y < l.y + l.h
+      );
+    }
+
+    function update() {
+      ship.vx = 0;
+      ship.vy = 0;
+
+      if (keys["ArrowUp"]) ship.vy = -ship.speed;
+      if (keys["ArrowDown"]) ship.vy = ship.speed;
+      if (keys["ArrowLeft"]) ship.vx = -ship.speed;
+      if (keys["ArrowRight"]) ship.vx = ship.speed;
+
+      const nextX = ship.x + ship.vx;
+      const nextY = ship.y + ship.vy;
+
+      // 陸地には入れない
+      if (!isOnLand(nextX, nextY)) {
+        ship.x = nextX;
+        ship.y = nextY;
+      }
+
+      // 画面外制限
+      ship.x = Math.max(0, Math.min(canvas.width, ship.x));
+      ship.y = Math.max(0, Math.min(canvas.height, ship.y));
+    }
+
+    function drawMap() {
+      // 海
+      ctx.fillStyle = "#1e90ff";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // 陸地
+      ctx.fillStyle = "#2ecc71";
+      landmasses.forEach((l) => {
+        ctx.fillRect(l.x, l.y, l.w, l.h);
+      });
+    }
+
+    function drawShip() {
+      ctx.fillStyle = "#ffffff";
+      ctx.beginPath();
+      ctx.moveTo(ship.x, ship.y - ship.size);
+      ctx.lineTo(ship.x - ship.size, ship.y + ship.size);
+      ctx.lineTo(ship.x + ship.size, ship.y + ship.size);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    function loop() {
+      update();
+      drawMap();
+      drawShip();
+      requestAnimationFrame(loop);
+    }
+
+    loop();
+  </script>
+</body>
+</html>
