@@ -1,126 +1,81 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8" />
-  <title>世界地図 航行ゲーム</title>
+  <meta charset="UTF-8">
+  <title>かんたん掲示板</title>
   <style>
     body {
-      margin: 0;
-      background: #0b1d2a;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-      color: white;
       font-family: sans-serif;
+      background: #f5f5f5;
+      padding: 20px;
     }
-    canvas {
-      border: 2px solid #ffffff44;
-      background: #1e90ff; /* 海 */
+    h1 {
+      text-align: center;
     }
-    .hint {
-      position: absolute;
-      bottom: 20px;
-      opacity: 0.8;
-      font-size: 14px;
+    .form {
+      margin-bottom: 20px;
+    }
+    input, textarea {
+      width: 100%;
+      padding: 8px;
+      margin-top: 5px;
+      margin-bottom: 10px;
+    }
+    button {
+      padding: 10px 20px;
+    }
+    .post {
+      background: white;
+      padding: 10px;
+      margin-bottom: 10px;
+      border-radius: 5px;
+    }
+    .name {
+      font-weight: bold;
     }
   </style>
 </head>
 <body>
-  <canvas id="game" width="900" height="450"></canvas>
-  <div class="hint">← ↑ → ↓ キーで船を操作</div>
 
-  <script>
-    const canvas = document.getElementById("game");
-    const ctx = canvas.getContext("2d");
+<h1>かんたん掲示板</h1>
 
-    // 簡易的な世界地図（陸地）
-    const landmasses = [
-      // 北米
-      { x: 80, y: 80, w: 180, h: 120 },
-      // 南米
-      { x: 180, y: 230, w: 120, h: 160 },
-      // ユーラシア
-      { x: 380, y: 60, w: 360, h: 160 },
-      // アフリカ
-      { x: 420, y: 220, w: 160, h: 180 },
-      // オーストラリア
-      { x: 680, y: 280, w: 160, h: 100 },
-    ];
+<div class="form">
+  <input id="name" placeholder="名前">
+  <textarea id="message" placeholder="メッセージ"></textarea>
+  <button onclick="addPost()">投稿</button>
+</div>
 
-    const ship = {
-      x: 0,
-      y: 0,
-      size: 8,
-      speed: 2,
-      vx: 0,
-      vy: 0,
-    };
+<div id="posts"></div>
 
-    const keys = {};
+<script>
+  const postsDiv = document.getElementById("posts");
 
-    window.addEventListener("keydown", (e) => (keys[e.key] = true));
-    window.addEventListener("keyup", (e) => (keys[e.key] = false));
+  function loadPosts() {
+    const posts = JSON.parse(localStorage.getItem("posts") || "[]");
+    postsDiv.innerHTML = "";
+    posts.forEach(p => {
+      const div = document.createElement("div");
+      div.className = "post";
+      div.innerHTML = `<div class="name">${p.name}</div><div>${p.message}</div>`;
+      postsDiv.appendChild(div);
+    });
+  }
 
-    function isOnLand(x, y) {
-      return landmasses.some(
-        (l) => x > l.x && x < l.x + l.w && y > l.y && y < l.y + l.h
-      );
-    }
+  function addPost() {
+    const name = document.getElementById("name").value;
+    const message = document.getElementById("message").value;
+    if (!name || !message) return;
 
-    function update() {
-      ship.vx = 0;
-      ship.vy = 0;
+    const posts = JSON.parse(localStorage.getItem("posts") || "[]");
+    posts.push({ name, message });
+    localStorage.setItem("posts", JSON.stringify(posts));
 
-      if (keys["ArrowUp"]) ship.vy = -ship.speed;
-      if (keys["ArrowDown"]) ship.vy = ship.speed;
-      if (keys["ArrowLeft"]) ship.vx = -ship.speed;
-      if (keys["ArrowRight"]) ship.vx = ship.speed;
+    document.getElementById("message").value = "";
+    loadPosts();
+  }
 
-      const nextX = ship.x + ship.vx;
-      const nextY = ship.y + ship.vy;
+  loadPosts();
+</script>
 
-      // 陸地には入れない
-      if (!isOnLand(nextX, nextY)) {
-        ship.x = nextX;
-        ship.y = nextY;
-      }
-
-      // 画面外制限
-      ship.x = Math.max(0, Math.min(canvas.width, ship.x));
-      ship.y = Math.max(0, Math.min(canvas.height, ship.y));
-    }
-
-    function drawMap() {
-      // 海
-      ctx.fillStyle = "#1e90ff";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-      // 陸地
-      ctx.fillStyle = "#2ecc71";
-      landmasses.forEach((l) => {
-        ctx.fillRect(l.x, l.y, l.w, l.h);
-      });
-    }
-
-    function drawShip() {
-      ctx.fillStyle = "#ffffff";
-      ctx.beginPath();
-      ctx.moveTo(ship.x, ship.y - ship.size);
-      ctx.lineTo(ship.x - ship.size, ship.y + ship.size);
-      ctx.lineTo(ship.x + ship.size, ship.y + ship.size);
-      ctx.closePath();
-      ctx.fill();
-    }
-
-    function loop() {
-      update();
-      drawMap();
-      drawShip();
-      requestAnimationFrame(loop);
-    }
-
-    loop();
-  </script>
 </body>
 </html>
